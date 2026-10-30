@@ -24,8 +24,8 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.468.0",
-    "multer": "^2.0.2",
     "mongoose": "^8.9.5",
+    "multer": "^2.0.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.1.1",
@@ -41,6 +41,6 @@
     "supertest": "^7.0.0",
     "tailwindcss": "^3.4.17",
     "vite": "^6.0.7",
-    "vitest": "^2.1.8"
+    "vitest": "^5.0.5"
   }
 }
