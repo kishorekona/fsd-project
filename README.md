@@ -19,6 +19,8 @@ Use `npm ci && npm run build` as the build command and `npm start` as the start 
 
 If deploying the frontend and API as separate services, configure the frontend host to proxy `/api` requests to the API service and set `CLIENT_ORIGIN` to the frontend's origin.
 
+For Render, create a Blueprint from this repository using `render.yaml`. Enter `MONGODB_URI` when prompted, then deploy. Render generates `JWT_SECRET` automatically.
+
 ## API overview
 
 - `GET /api/health` — server/database status
