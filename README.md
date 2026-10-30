@@ -13,6 +13,12 @@ A MERN learning-management-system starter with a responsive React student dashbo
 
 For a production frontend build, run `npm run build`. Start the API with `npm start`.
 
+## Deploying to a Node.js host
+
+Use `npm ci && npm run build` as the build command and `npm start` as the start command. The server serves the built frontend and API from the same origin, including client-side routes. Configure `MONGODB_URI` with your MongoDB connection string and `JWT_SECRET` with a random value of at least 32 characters. The host should provide `PORT`; set `CLIENT_ORIGIN` only when the frontend is hosted on a different origin.
+
+If deploying the frontend and API as separate services, configure the frontend host to proxy `/api` requests to the API service and set `CLIENT_ORIGIN` to the frontend's origin.
+
 ## API overview
 
 - `GET /api/health` — server/database status

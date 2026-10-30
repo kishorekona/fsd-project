@@ -39,6 +39,13 @@ describe('API foundation', () => {
     expect(response.status).toBe(404);
     expect(response.body.message).toBe('Route not found.');
   });
+
+  it('serves the client app for nested routes when a production build exists', async () => {
+    const response = await request(app).get('/courses/example-course');
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/text\/html/);
+    expect(response.text).toContain('<div id="root"></div>');
+  });
 });
 
 describe('learning input validation', () => {
