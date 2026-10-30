@@ -10,6 +10,21 @@ import { asyncRoute, HttpError } from '../utils/http.js';
 
 export const learningRouter = Router();
 
+export function hasValidQuizAnswerIndexes(questions) {
+  return questions.every((question) => Array.isArray(question.options)
+    && Number.isInteger(question.correctOption)
+    && question.correctOption >= 0
+    && question.correctOption < question.options.length);
+}
+
+export function isAllowedAssignmentFile(fileName, allowedFileTypes) {
+  if (!allowedFileTypes.length) return true;
+  const allowedExtensions = allowedFileTypes.map((extension) => (
+    extension.startsWith('.') ? extension.toLowerCase() : `.${extension.toLowerCase()}`
+  ));
+  return allowedExtensions.includes(path.extname(fileName).toLowerCase());
+}
+
 async function courseForInstructor(courseId, user) {
   const course = await Course.findById(courseId).select('instructor isArchived');
   if (!course || course.isArchived) throw new HttpError(404, 'Course not found.');
@@ -95,11 +110,11 @@ learningRouter.patch('/lessons/:lessonId/complete', requireAuth, allowRoles('stu
 
 learningRouter.post('/courses/:courseId/quizzes', requireAuth, allowRoles('instructor', 'admin'),
   param('courseId').isMongoId(), body('title').trim().isLength({ min: 2, max: 160 }),
-  body('questions').isArray({ min: 1, max: 100 }),
+  body('questions').isArray({ min: 1, max: 100 }).bail()
+    .custom(hasValidQuizAnswerIndexes).withMessage('Each correct answer must refer to an existing option.'),
   body('questions.*.prompt').trim().isLength({ min: 1, max: 2000 }),
   body('questions.*.options').isArray({ min: 2, max: 8 }),
   body('questions.*.options.*').isString().trim().isLength({ min: 1, max: 500 }),
-  body('questions.*.correctOption').isInt({ min: 0 }),
   body('passingScore').optional().isInt({ min: 0, max: 100 }),
   body('attemptLimit').optional().isInt({ min: 1, max: 20 }), validateRequest,
   asyncRoute(async (req, res) => {
@@ -185,30 +200,43 @@ learningRouter.get('/courses/:courseId/assignments', requireAuth, param('courseI
 
 learningRouter.post('/assignments/:assignmentId/submissions', requireAuth, allowRoles('student'),
   param('assignmentId').isMongoId(), body('textResponse').optional().isString().isLength({ max: 20000 }),
-  (req, res, next) => assignmentUpload.single('file')(req, res, (error) => error ? next(new HttpError(400, error.message)) : next()),
-  asyncRoute(async (req, res) => {
+  validateRequest,
+  asyncRoute(async (req, _res, next) => {
     const assignment = await Assignment.findById(req.params.assignmentId);
     if (!assignment) throw new HttpError(404, 'Assignment not found.');
     await verifyEnrollment(assignment.course, req.user._id);
     if (new Date() > assignment.dueDate && !assignment.allowLateSubmissions) throw new HttpError(400, 'The deadline has passed and late submissions are disabled.');
-    if (!req.file && !req.body.textResponse?.trim()) throw new HttpError(400, 'Add a written response or an allowed file.');
-    if (req.file && assignment.allowedFileTypes.length && !assignment.allowedFileTypes.map((extension) => extension.startsWith('.') ? extension.toLowerCase() : `.${extension.toLowerCase()}`).includes(path.extname(req.file.originalname).toLowerCase())) {
-      throw new HttpError(400, 'This file extension is not allowed for the assignment.');
+    req.assignment = assignment;
+    next();
+  }),
+  (req, res, next) => assignmentUpload.single('file')(req, res, (error) => error ? next(new HttpError(400, error.message)) : next()),
+  asyncRoute(async (req, res) => {
+    const assignment = req.assignment;
+    let previousSubmission;
+    let submission;
+    try {
+      if (!req.file && !req.body.textResponse?.trim()) throw new HttpError(400, 'Add a written response or an allowed file.');
+      if (req.file && !isAllowedAssignmentFile(req.file.originalname, assignment.allowedFileTypes)) {
+        throw new HttpError(400, 'This file extension is not allowed for the assignment.');
+      }
+      previousSubmission = await Submission.findOne({ assignment: assignment._id, student: req.user._id });
+      submission = await Submission.findOneAndUpdate(
+        { assignment: assignment._id, student: req.user._id },
+        { $set: {
+          textResponse: req.body.textResponse || '',
+          ...(req.file ? { fileReference: { title: path.basename(req.file.originalname), url: req.file.filename, mimeType: req.file.mimetype } } : {}),
+          submittedAt: new Date(), status: new Date() > assignment.dueDate ? 'late' : 'submitted'
+        } },
+        { new: true, upsert: true, runValidators: true }
+      );
+    } catch (error) {
+      if (req.file) await unlink(req.file.path).catch(() => {});
+      throw error;
     }
-    const previousSubmission = await Submission.findOne({ assignment: assignment._id, student: req.user._id });
     if (previousSubmission?.fileReference?.url && req.file) {
       const oldFile = path.join(uploadDirectory, path.basename(previousSubmission.fileReference.url));
       await unlink(oldFile).catch(() => {});
     }
-    const submission = await Submission.findOneAndUpdate(
-      { assignment: assignment._id, student: req.user._id },
-      { $set: {
-        textResponse: req.body.textResponse || '',
-        ...(req.file ? { fileReference: { title: path.basename(req.file.originalname), url: req.file.filename, mimeType: req.file.mimetype } } : {}),
-        submittedAt: new Date(), status: new Date() > assignment.dueDate ? 'late' : 'submitted'
-      } },
-      { new: true, upsert: true, runValidators: true }
-    );
     res.status(201).json({ submission: { id: submission._id, status: submission.status, submittedAt: submission.submittedAt } });
   })
 );

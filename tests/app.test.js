@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
+import { hasValidQuizAnswerIndexes, isAllowedAssignmentFile } from '../src/routes/learning.js';
 
 const app = createApp();
 
@@ -37,5 +38,23 @@ describe('API foundation', () => {
     const response = await request(app).get('/api/does-not-exist');
     expect(response.status).toBe(404);
     expect(response.body.message).toBe('Route not found.');
+  });
+});
+
+describe('learning input validation', () => {
+  it('accepts quiz answers that point to an available option', () => {
+    expect(hasValidQuizAnswerIndexes([{ options: ['A', 'B'], correctOption: 1 }])).toBe(true);
+  });
+
+  it('rejects quiz answers outside the available options', () => {
+    expect(hasValidQuizAnswerIndexes([{ options: ['A', 'B'], correctOption: 2 }])).toBe(false);
+    expect(hasValidQuizAnswerIndexes([{ options: ['A', 'B'], correctOption: -1 }])).toBe(false);
+    expect(hasValidQuizAnswerIndexes([{ correctOption: 0 }])).toBe(false);
+  });
+
+  it('matches assignment file extensions case-insensitively', () => {
+    expect(isAllowedAssignmentFile('work.PDF', ['pdf'])).toBe(true);
+    expect(isAllowedAssignmentFile('work.exe', ['pdf'])).toBe(false);
+    expect(isAllowedAssignmentFile('work.exe', [])).toBe(true);
   });
 });
