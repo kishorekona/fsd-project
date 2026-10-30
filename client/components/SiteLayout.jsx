@@ -1,0 +1,8 @@
+import { Link, NavLink, Outlet } from 'react-router-dom';
+import { BookOpen, LogOut, Menu, UserRound } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.jsx';
+
+export default function SiteLayout() {
+  const { user, signOut } = useAuth();
+  return <div className="site-shell"><header className="site-header"><Link className="site-brand" to="/"><span className="site-brand-mark"><BookOpen size={19} /></span>LearnHub<span className="brand-period">.</span></Link><nav className="site-links" aria-label="Main navigation"><NavLink to="/courses">Explore courses</NavLink><a href="/#about">About</a><a href="/#contact">Contact</a></nav><div className="site-account">{user ? <><Link className="site-dashboard-link" to="/dashboard"><UserRound size={16} /> Dashboard</Link><button className="site-signout" onClick={signOut} aria-label="Sign out"><LogOut size={16} /></button></> : <><Link className="site-login" to="/login">Log in</Link><Link className="button button-primary button-small" to="/register">Get started <span>↗</span></Link></>}</div><button className="mobile-nav-toggle" aria-label="Open navigation"><Menu size={21} /></button></header><Outlet /><footer className="site-footer"><Link className="site-brand footer-brand" to="/"><span className="site-brand-mark"><BookOpen size={17} /></span>LearnHub<span className="brand-period">.</span></Link><span>Learning is a journey. Take the next step.</span><span>© 2026 LearnHub</span></footer></div>;
+}

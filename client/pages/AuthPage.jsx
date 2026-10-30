@@ -1,0 +1,25 @@
+import { ArrowLeft, ArrowRight, BookOpen, Check, Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.jsx';
+
+export default function AuthPage({ mode }) {
+  const isRegister = mode === 'register';
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' });
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  async function handleSubmit(event) {
+    event.preventDefault(); setError(''); setBusy(true);
+    try {
+      const user = await signIn(form, isRegister ? '/auth/register' : '/auth/login');
+      if (user.instructorPending) setError('Your account is ready. Instructor access is pending administrator approval; you can start learning as a student now.');
+      navigate(user.role === 'admin' ? '/admin' : '/dashboard', { replace: true, state: user.instructorPending ? { notice: 'Instructor access is pending approval.' } : undefined });
+    } catch (requestError) { setError(requestError.response?.data?.message || 'We couldn’t complete that request. Please try again.'); }
+    finally { setBusy(false); }
+  }
+  return <main className="auth-main"><Link className="auth-back" to={isRegister ? '/' : '/courses'}><ArrowLeft size={15} /> {isRegister ? 'Back to LearnHub' : 'Explore courses'}</Link><div className="auth-layout"><section className="auth-panel"><span className="auth-mark"><BookOpen size={20} /></span><span className="section-kicker">{isRegister ? 'YOUR NEXT CHAPTER STARTS HERE' : 'GOOD TO HAVE YOU BACK'}</span><h1>{isRegister ? <>Make a little<br /><em>room to grow.</em></> : <>Pick up your<br /><em>next chapter.</em></>}</h1><p>{isRegister ? 'Create your account and find a new favorite way to learn.' : 'Sign in to get back to your courses and the progress you’re making.'}</p><div className="auth-benefit"><span><Check size={15} /></span> Your courses and progress, all in one place.</div><div className="auth-benefit"><span><Check size={15} /></span> Learn on your time. Pick up where you left off.</div><div className="auth-deco deco-one" /><div className="auth-deco deco-two" /></section><section className="auth-form-panel"><div className="auth-form-heading"><span>{isRegister ? 'CREATE AN ACCOUNT' : 'WELCOME BACK'}</span><h2>{isRegister ? 'Let’s get you started.' : 'Sign in to LearnHub.'}</h2><p>{isRegister ? 'A few details and you’re on your way.' : 'Your learning journey is right where you left it.'}</p></div><form onSubmit={handleSubmit}>{isRegister && <label className="form-field"><span>Your name</span><div className="form-input"><UserRound size={16} /><input autoComplete="name" required minLength="2" maxLength="100" placeholder="Alex Morgan" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></div></label>}<label className="form-field"><span>Email address</span><div className="form-input"><Mail size={16} /><input type="email" autoComplete="email" required placeholder="you@example.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></div></label><label className="form-field"><span>Password</span><div className="form-input"><LockKeyhole size={16} /><input type={showPassword ? 'text' : 'password'} autoComplete={isRegister ? 'new-password' : 'current-password'} required minLength={isRegister ? 10 : 1} maxLength="72" placeholder={isRegister ? 'At least 10 characters' : 'Enter your password'} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /><button className="password-toggle" type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></label>{isRegister && <label className="form-field"><span>I’m here as a</span><select className="role-select" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="student">Student</option><option value="instructor">Instructor</option></select><small>Instructor accounts require administrator approval before publishing courses.</small></label>}{error && <div className="form-error" role="alert">{error}</div>}<button className="button button-primary auth-submit" disabled={busy}>{busy ? 'One moment…' : isRegister ? 'Create my account' : 'Sign in'} <ArrowRight size={16} /></button></form><p className="auth-switch">{isRegister ? 'Already learning with us?' : 'New around here?'} <Link to={isRegister ? '/login' : '/register'}>{isRegister ? 'Sign in' : 'Create an account'}</Link></p><div className="auth-security"><LockKeyhole size={13} /> Your information stays yours. Always.</div></section></div></main>;
+}
